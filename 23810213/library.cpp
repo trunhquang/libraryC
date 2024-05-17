@@ -69,7 +69,6 @@ void show_main_menu()
 // Shift Option F: format code
 int main()
 {
-    create_template_reader();
     create_template_book();
     create_template_ticket();
     show_main_menu();

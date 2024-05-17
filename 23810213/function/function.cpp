@@ -4,6 +4,17 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include <sys/stat.h>
+#include <errno.h>
+
+#ifdef _WIN32
+#include <direct.h>
+#define MKDIR(path) _mkdir(path)
+#else
+#include <unistd.h>
+#define MKDIR(path) mkdir(path, 0755)
+#endif
+
 /// @brief validate action in
 /// @param choice
 /// @param length
@@ -327,4 +338,15 @@ int utf8_strlen(const char *str) {
         str++;
     }
     return length;
+}
+
+int ensure_directory_exists(const char *path) {
+    struct stat st = {0};
+    if (stat(path, &st) == -1) {
+        if (MKDIR(path) != 0) {
+            perror("Failed to create directory");
+            return -1;
+        }
+    }
+    return 0;
 }

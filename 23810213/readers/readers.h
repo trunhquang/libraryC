@@ -11,22 +11,16 @@
 struct Reader
 {
     int id;
-
     char *reader_name;
-
     char *cmnd;
-
     char *birthdate;
-
     char *gender;
-
     char *address;
-
     char *date_create_card;
-
     char *date_expire_card;
 };
-
+void free_reader(struct Reader *reader);
+void free_readers(struct Reader *readers, int count);
 struct Reader createReader(int id, char *name, char *cmnd, char *birthdate, char *gender, char *address, char *date_create_card, char *date_expire_card);
 
 int get_reader_size();
@@ -38,13 +32,10 @@ bool readers_show_menu_functions();
 /// @param choice
 bool handle_readers_menu(int choice);
 
-void show_edit_reader_menu(int index);
-
-void create_template_reader();
+void show_edit_reader_menu(int index, Reader *reader_list, int reader_size);
 
 int *get_ids_reader();
 
-int get_total_reader();
 void show_statistics_gender();
 
 char *get_reader_name(int id);
@@ -63,3 +54,10 @@ int *findPersonByCmnd(struct Reader *people, int num_people, int *return_arr_len
 int findPersonByid(struct Reader *people, int num_people, int id);
 // Hàm xóa một đối tượng Person khỏi mảng
 void deletePersonbyID(struct Reader **people, int *num_people, int id);
+
+void write_readers_to_file(const char *filename, struct Reader *readers, int count);
+
+void write_reader_to_file(const char *filename, struct Reader reader);
+int read_readers_from_file(const char *filename, struct Reader **readers);
+void update_reader_in_file(const char *filename, int id_to_update, struct Reader new_data);
+int delete_reader_in_file(const char *filename, int id_to_update);

@@ -8,8 +8,8 @@
 
 int width_line = 0;
 int column_with[8];
-int reader_size = 0;
-struct Reader *reader_list = NULL;
+
+char *reader_file = "files/readers.txt";
 
 /// @brief readers menu
 char menu[8][100] = {"Xem danh sách độc giả trong thư viện",
@@ -28,7 +28,6 @@ char edit_menu[6][100] = {"Sửa tên",
                           "Sửa địa chỉ",
                           "Quay lại"};
 
-
 void calculator_column_with(int *arr)
 {
     int id_width = 7;
@@ -39,6 +38,10 @@ void calculator_column_with(int *arr)
     int date_create_width = 12;
     int date_expired_width = 12;
     int address_width = 20;
+    
+    struct Reader *reader_list;
+    int reader_size = read_readers_from_file(reader_file, &reader_list);
+
     for (int i = 0; i < reader_size; ++i)
     {
         struct Reader reader = reader_list[i];
@@ -67,6 +70,7 @@ void calculator_column_with(int *arr)
     arr[5] = date_create_width;
     arr[6] = date_expired_width;
     arr[7] = address_width + 3;
+    free_readers(reader_list, reader_size);
 }
 
 void print_title()
@@ -108,9 +112,8 @@ void print_title()
     printLine(width_line);
 }
 
-void print_reader(int index)
+void print_reader(struct Reader reader)
 {
-    struct Reader reader = reader_list[index];
     char result[10];
     snprintf(result, sizeof(result), "%d", reader.id);
 
@@ -134,7 +137,9 @@ void print_reader(int index)
 }
 
 void view_readers(int index, bool showAll)
-{
+{   
+    struct Reader *reader_list;
+    int reader_size = read_readers_from_file(reader_file, &reader_list);
     print_title();
     if (reader_size == 0)
     {
@@ -144,19 +149,20 @@ void view_readers(int index, bool showAll)
         printLine(width_line);
         return;
     }
+
     if (showAll)
     {
         // In dữ liệu từng dòng
         for (int i = reader_size - 1; i >= 0; --i)
         {
-            print_reader(i);
+        print_reader(reader_list[i]);
         }
     }
     else
     {
-        print_reader(index);
+        print_reader(reader_list[index]);
     }
-
+    free_readers(reader_list, reader_size);
     // Kết thúc bảng
     printLine(width_line);
 }
@@ -200,7 +206,6 @@ void add_reader()
     printf("Địa chỉ: ");
     scanf(" %99[^\n]", _address);
 
-
     // Lấy thời gian hiện tại
     time_t current_time;
     time(&current_time);
@@ -208,9 +213,12 @@ void add_reader()
     // Chuyển đổi thời gian hiện tại thành cấu trúc tm
     struct tm *create_time = localtime(&current_time);
     int day = create_time->tm_mday, month = create_time->tm_mon + 1, year = create_time->tm_year + 1900;
-    
+
     snprintf(current_date, 11, "%02d/%02d/%d", day, month, year);
     snprintf(expired_date, 11, "%02d/%02d/%d", day, month, year + 4);
+
+    struct Reader *reader_list;
+    int reader_size = read_readers_from_file(reader_file, &reader_list);
 
     // realloc data list
     int newId = 1;
@@ -219,14 +227,17 @@ void add_reader()
         newId = reader_list[reader_size - 1].id + 1;
     }
     struct Reader reader = createReader(newId, full_name, _cmnd, _birthdate, _gender, _address, current_date, expired_date);
-    addReader(&reader_list, &reader_size, reader);
+    write_reader_to_file(reader_file, reader);
+    free_reader(&reader);
+    free_readers(reader_list, reader_size);
 
     view_readers(0, true);
-    view_readers(reader_size - 1, false);
 }
 
 void edit_reader()
 {
+    struct Reader *reader_list;
+    int reader_size = read_readers_from_file(reader_file, &reader_list);
     if (reader_size == 0)
     {
         printLine(54);
@@ -259,10 +270,10 @@ void edit_reader()
         return;
     }
     view_readers(index, false);
-    show_edit_reader_menu(index);
+    show_edit_reader_menu(index, reader_list, reader_size);
 }
 
-void show_edit_reader_menu(int index)
+void show_edit_reader_menu(int index, Reader *reader_list, int reader_size)
 {
     printf("------------------DANH MỤC CẦN SỬA----------------\n");
 
@@ -271,6 +282,7 @@ void show_edit_reader_menu(int index)
     {
         printf("%d.%s\n", i, edit_menu[i]);
     }
+
     printf("-------------------------------------------------------\n");
 
     int choice = choice_action(length);
@@ -309,6 +321,10 @@ void show_edit_reader_menu(int index)
         strcpy(editReader.address, _address);
         break;
     }
+
+    update_reader_in_file(reader_file, editReader.id, editReader);
+    free_readers(reader_list, reader_size);
+
     printLine(54);
     begin_line();
     print_cell("** THÔNG TIN ĐÃ SỬA **", 50, true);
@@ -330,7 +346,7 @@ void delete_reader()
     printf("Nhập ID độc giả cần xóa: ");
     scanf(" %d", &id);
 
-    int index = findPersonByid(reader_list, reader_size, id);
+    int index = delete_reader_in_file(reader_file, id);
     if (index == -1)
     {
         printLine(54);
@@ -340,7 +356,6 @@ void delete_reader()
         printLine(54);
         return;
     }
-    deletePersonbyID(&reader_list, &reader_size, id);
     printLine(54);
     begin_line();
     print_cell("** Đã xóa độc giả thành công **", 50, true);
@@ -362,6 +377,9 @@ void search_reader_by_cmnd()
     scanf(" %s", _cmnd);
 
     int length;
+    struct Reader *reader_list;
+    int reader_size = read_readers_from_file(reader_file, &reader_list);
+
     int *indexs = findPersonByCmnd(reader_list, reader_size, &length, _cmnd);
     if (length == 0)
     {
@@ -384,11 +402,13 @@ void search_reader_by_cmnd()
 
     print_title();
     for (int i = 0; i < (length); i++)
-    {
-        print_reader(indexs[i]);
+    {   
+        int index = indexs[i];
+        print_reader(reader_list[index]);
     }
     printLine(width_line);
     free(indexs);
+    free_readers(reader_list, reader_size);
 }
 
 void search_book_by_reader_name()
@@ -405,6 +425,8 @@ void search_book_by_reader_name()
     scanf(" %27[^\n]", full_name);
 
     int length = 0;
+    struct Reader *reader_list;
+    int reader_size = read_readers_from_file(reader_file, &reader_list);
     int *indexs = findPersonByName(reader_list, reader_size, &length, full_name);
     if (length == 0)
     {
@@ -417,6 +439,7 @@ void search_book_by_reader_name()
         print_cell(message, 50, true);
         end_line();
         printLine(54);
+        free_readers(reader_list, reader_size);
         return;
     }
     printLine(54);
@@ -428,10 +451,12 @@ void search_book_by_reader_name()
     print_title();
     for (int i = 0; i < (length); i++)
     {
-        print_reader(indexs[i]);
+        int index = indexs[i];
+        print_reader(reader_list[index]);
     }
     printLine(width_line);
     free(indexs);
+    free_readers(reader_list, reader_size);
 }
 
 /// @brief show readers menu
@@ -500,30 +525,37 @@ bool handle_readers_menu(int choice)
 }
 int get_reader_size()
 {
-    return reader_size;
+    struct Reader *readers;
+    int count = read_readers_from_file(reader_file, &readers);
+    free_readers(readers, count);
+    return count;
 }
 
 int *get_ids_reader()
 {
+    struct Reader *readers;
+    int reader_size = read_readers_from_file(reader_file, &readers);
+
     int *indexs = (int *)malloc(reader_size * sizeof(int));
-    for (int i = 0; i < reader_size; i++){
-        indexs[i] = reader_list[i].id;
+    for (int i = 0; i < reader_size; i++)
+    {
+        indexs[i] = readers[i].id;
     }
+    free_readers(readers, reader_size);
     return indexs;
 }
 
-int get_total_reader()
-{
-    return reader_size;
-}
 
 void show_statistics_gender()
 {
+    struct Reader *readers;
+    int reader_size = read_readers_from_file(reader_file, &readers);
+
     int totalMale = 0;
     int totalFemale = 0;
     for (int i = 0; i < reader_size; i++)
     {
-        if (strcmp(reader_list[i].gender, "nam") == 0)
+        if (strcmp(readers[i].gender, "nam") == 0)
         {
             totalMale++;
         }
@@ -532,19 +564,25 @@ void show_statistics_gender()
             totalFemale++;
         }
     }
+    free_readers(readers, reader_size);
     printf(" - Nam: %d\n", totalMale);
     printf(" - Nữ: %d\n", totalFemale);
 }
 
 char *get_reader_name(int id)
 {
+    struct Reader *reader_list;
+    int reader_size = read_readers_from_file(reader_file, &reader_list);
+
     int index = findPersonByid(reader_list, reader_size, id);
     if (index == -1)
     {
         char *result = (char *)malloc(1);
         return result;
     }
-    return reader_list[index].reader_name;
+    char *name = reader_list[index].reader_name;
+    free_readers(reader_list, reader_size);
+    return name;
 }
 
 struct Reader createReader(int id, char *name, char *cmnd, char *birthdate, char *gender, char *address, char *date_create_card, char *date_expire_card)
@@ -554,46 +592,41 @@ struct Reader createReader(int id, char *name, char *cmnd, char *birthdate, char
 
     // Cấp phát bộ nhớ cho tên và sao chép tên
     reader.reader_name = (char *)malloc(strlen(name) + 1);
-    if (reader.reader_name  != NULL) {
+    if (reader.reader_name != NULL)
+    {
         strcpy(reader.reader_name, name);
     }
     reader.cmnd = (char *)malloc(strlen(cmnd) + 1);
-    if (reader.cmnd != NULL) {
+    if (reader.cmnd != NULL)
+    {
         strcpy(reader.cmnd, cmnd);
     }
     reader.birthdate = (char *)malloc(strlen(birthdate) + 1);
-    if (reader.birthdate != NULL) {
+    if (reader.birthdate != NULL)
+    {
         strcpy(reader.birthdate, birthdate);
     }
     reader.gender = (char *)malloc(strlen(gender) + 1);
-    if (reader.gender != NULL) {
+    if (reader.gender != NULL)
+    {
         strcpy(reader.gender, gender);
     }
     reader.address = (char *)malloc(strlen(address) + 1);
-    if (reader.address != NULL) {
+    if (reader.address != NULL)
+    {
         strcpy(reader.address, address);
     }
     reader.date_create_card = (char *)malloc(strlen(date_create_card) + 1);
-    if (reader.date_create_card != NULL) {
+    if (reader.date_create_card != NULL)
+    {
         strcpy(reader.date_create_card, date_create_card);
-    }   
+    }
     reader.date_expire_card = (char *)malloc(strlen(date_expire_card) + 1);
-    if (reader.date_expire_card != NULL) {
+    if (reader.date_expire_card != NULL)
+    {
         strcpy(reader.date_expire_card, date_expire_card);
     }
     return reader;
-}
-
-void create_template_reader()
-{
-    struct Reader reader = createReader(1, "Nguyễn trung quang", "215151911", "19/11/2002", "nam", "hoai thanh-hoai nhon-binh dinh", "20/04/2023", "20/04/2027");
-    struct Reader reader1 = createReader(2, "Nguyen thi ngoc", "27161721", "19/11/1996", "nữ", "My an- my k- phu cat", "20/04/2024", "20/04/2028");
-    struct Reader reader2 = createReader(3, "Thai thi my lan", "052091002214", "19/11/1996", "nam", "My an- my k- phu cat", "20/04/2024", "20/04/2028");
-    struct Reader reader3 = createReader(4, "Trần văn trà", "27161721", "19/11/1996", "nữ", "My an- my k- phu cat", "20/04/2024", "20/04/2028");
-    addReader(&reader_list, &reader_size, reader);
-    addReader(&reader_list, &reader_size, reader1);
-    addReader(&reader_list, &reader_size, reader2);
-    addReader(&reader_list, &reader_size, reader3);
 }
 
 void addReader(struct Reader **people, int *num_people, struct Reader new_person)
@@ -686,4 +719,251 @@ void deletePersonbyID(struct Reader **people, int *num_people, int id)
 
     // Giảm số lượng người trong mảng đi 1
     (*num_people)--;
+}
+
+void write_readers_to_file(const char *filename, struct Reader *readers, int count)
+{
+    // Extract the directory path from the filename
+    char dir[256];
+    strcpy(dir, filename);
+    char *last_slash = strrchr(dir, '/');
+    if (last_slash != NULL)
+    {
+        *last_slash = '\0'; // Terminate the string at the last slash
+        if (ensure_directory_exists(dir) != 0)
+        {
+            return;
+        }
+    }
+
+    FILE *file = fopen(filename, "w");
+    if (file == NULL)
+    {
+        perror("Failed to open file");
+        return;
+    }
+
+    // Write the number of readers
+    fprintf(file, "%d\n", count);
+
+    // Write each reader's information
+    for (int i = 0; i < count; i++)
+    {
+        fprintf(file, "%d\n", readers[i].id);
+        fprintf(file, "%s\n", readers[i].reader_name);
+        fprintf(file, "%s\n", readers[i].cmnd);
+        fprintf(file, "%s\n", readers[i].birthdate);
+        fprintf(file, "%s\n", readers[i].gender);
+        fprintf(file, "%s\n", readers[i].address);
+        fprintf(file, "%s\n", readers[i].date_create_card);
+        fprintf(file, "%s\n", readers[i].date_expire_card);
+        fprintf(file, "%s\n", "----------------------------------");
+    }
+
+    fclose(file);
+}
+
+void write_reader_to_file(const char *filename, struct Reader reader)
+{
+    // Extract the directory path from the filename
+    char dir[256];
+    strcpy(dir, filename);
+    char *last_slash = strrchr(dir, '/');
+    if (last_slash != NULL)
+    {
+        *last_slash = '\0'; // Terminate the string at the last slash
+        if (ensure_directory_exists(dir) != 0)
+        {
+            return;
+        }
+    }
+
+    FILE *file = fopen(filename, "r+"); // Open the file in read-write mode
+    if (file == NULL) {
+        perror("Error opening file");
+        return ;
+    }
+    // Read the count of readers
+    int count;
+    if (fscanf(file, "%d\n", &count) != 1) {
+        perror("Error reading count of readers");
+        fclose(file);
+        return ;
+    }
+    // Update the count of readers
+    count++;
+    // Move the file pointer to the beginning to overwrite the count
+    rewind(file);
+    fprintf(file, "%d\n", count);
+
+    // Move the file pointer to the end of the file
+    if (fseek(file, 0, SEEK_END) != 0) {
+        perror("Error moving file pointer to the end of file");
+        fclose(file);
+        return ;
+    }
+
+    fprintf(file, "%d\n", reader.id);
+    fprintf(file, "%s\n", reader.reader_name);
+    fprintf(file, "%s\n", reader.cmnd);
+    fprintf(file, "%s\n", reader.birthdate);
+    fprintf(file, "%s\n", reader.gender);
+    fprintf(file, "%s\n", reader.address);
+    fprintf(file, "%s\n", reader.date_create_card);
+    fprintf(file, "%s\n", reader.date_expire_card);
+    fprintf(file, "%s\n", "----------------------------------");
+
+    fclose(file);
+}
+
+int read_readers_from_file(const char *filename, struct Reader **readers) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        perror("Failed to open file");
+        return -1;
+    }
+
+    int count;
+    if (fscanf(file, "%d\n", &count) != 1) {
+        perror("Failed to read the number of readers");
+        fclose(file);
+        return -1;
+    }
+
+    *readers = (struct Reader *)malloc(count * sizeof(struct Reader));
+    if (*readers == NULL) {
+        perror("Failed to allocate memory for readers");
+        fclose(file);
+        return -1;
+    }
+
+    for (int i = 0; i < count; i++) {
+        struct Reader *reader = &(*readers)[i];
+
+        reader->reader_name = (char *)malloc(256);
+        reader->cmnd = (char *)malloc(256);
+        reader->birthdate = (char *)malloc(256);
+        reader->gender = (char *)malloc(256);
+        reader->address = (char *)malloc(256);
+        reader->date_create_card = (char *)malloc(256);
+        reader->date_expire_card = (char *)malloc(256);
+
+        if (fscanf(file, "%d\n", &reader->id) != 1) {
+            perror("Failed to read reader id");
+            fclose(file);
+            return count;
+        } 
+
+        if (fscanf(file, "%255[^\n]\n", reader->reader_name) != 1) {
+            perror("Failed to read reader name");
+            fclose(file);
+            return count;
+        }
+
+        if (fscanf(file, "%255[^\n]\n", reader->cmnd) != 1) {
+            perror("Failed to read reader cmnd");
+            fclose(file);
+            return count;
+        }
+
+        if (fscanf(file, "%255[^\n]\n", reader->birthdate) != 1) {
+            perror("Failed to read reader birthdate");
+            fclose(file);
+            return count;
+        }
+
+        if (fscanf(file, "%255[^\n]\n", reader->gender) != 1){
+            perror("Failed to read reader gender");
+            fclose(file);
+            return count;
+        }
+        if (fscanf(file, "%255[^\n]\n", reader->address) != 1) {
+            perror("Failed to read reader address");
+            fclose(file);
+            return count;
+        }
+        if (fscanf(file, "%255[^\n]\n", reader->date_create_card) != 1) {
+            perror("Failed to read reader date create card");
+            fclose(file);
+            return count;
+        }
+        if (fscanf(file, "%255[^\n]\n", reader->date_expire_card) != 1) {
+            perror("Failed to read reader date expire card");
+            fclose(file);
+            return count;
+        }
+
+        char line[256];
+        if (fscanf(file, "%255[^\n]\n", line) != 1) {
+            perror("Failed to read reader data");
+            fclose(file);
+            return count;
+        }
+
+    }
+
+    fclose(file);
+    return count;
+}
+
+void update_reader_in_file(const char *filename, int id_to_update, struct Reader new_data) {
+    struct Reader *readers;
+    int count = read_readers_from_file(filename, &readers);
+
+    if (count == -1) {
+        printf("Failed to read readers from file.\n");
+        return;
+    }
+
+    for (int i = 0; i < count; i++) {
+        if (readers[i].id == id_to_update) {
+            free_reader(&readers[i]);
+            readers[i] = new_data;
+            break;
+        }
+    }
+
+    write_readers_to_file(filename, readers, count);
+    free_readers(readers, count);
+}
+
+int delete_reader_in_file(const char *filename, int id_to_update) {
+    struct Reader *readers;
+    int count = read_readers_from_file(filename, &readers);
+
+    if (count == -1) {
+        printf("Failed to read readers from file.\n");
+        return -1;
+    }
+
+    int index_delete = -1;
+    for (int i = 0; i < count; i++) {
+        if (readers[i].id == id_to_update) {
+            index_delete = i;
+        }
+        if (index_delete != -1 && i < count - 1) {
+            readers[i] = readers[i + 1];
+        }
+    }
+
+    write_readers_to_file(filename, readers, count-1);
+    free_readers(readers, count);
+    return 1;
+}
+
+void free_reader(struct Reader *reader) {
+    free(reader->reader_name);
+    free(reader->cmnd);
+    free(reader->birthdate);
+    free(reader->gender);
+    free(reader->address);
+    free(reader->date_create_card);
+    free(reader->date_expire_card);
+}
+
+void free_readers(struct Reader *readers, int count) {
+    for (int i = 0; i < count; i++) {
+        free_reader(&readers[i]);
+    }
+    free(readers);
 }

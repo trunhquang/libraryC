@@ -57,6 +57,9 @@
   "C_Cpp_Runner.useLinkTimeOptimization": false,
   "C_Cpp_Runner.msvcSecureNoWarnings": false,
   "files.associations": {
-    "typeinfo": "cpp"
+    "typeinfo": "cpp",
+    "__bit_reference": "cpp",
+    "bitset": "cpp",
+    "unordered_map": "cpp"
   }
 }

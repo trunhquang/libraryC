@@ -35,3 +35,4 @@ void deleteElementInt(int *array, int size, int index);
 
 int daysLate(int day1, int month1, int year1, int day2, int month2, int year2);
 int utf8_strlen(const char *str);
+int ensure_directory_exists(const char *path);

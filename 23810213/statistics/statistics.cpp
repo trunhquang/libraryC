@@ -12,7 +12,7 @@ void statistics_show()
     printf("a. Số lượng sách trong thư viện: %d\n", total_book);
     printf("b. Số lượng sách theo thể loại:\n");
     show_statistics_category();
-    printf("c. Số lượng độc giả: %d\n", get_total_reader());
+    printf("c. Số lượng độc giả: %d\n", get_reader_size());
     printf("d. Số lượng độc giả theo giới tính:\n");
     show_statistics_gender();
     printf("e. Số sách đang được mượn: %d\n", get_total_borrowed_books());
