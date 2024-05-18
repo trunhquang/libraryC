@@ -476,8 +476,8 @@ void show_reader_late_ticket()
 
 void create_template_ticket()
 {
-    struct Ticket ticket = createTicket(1, 2, "1234920112", "", 0, 0, 28, 12, 2024, 0, 0, 0);
-    struct Ticket ticket2 = createTicket(2, 3, "1234920112", "", 0, 0, 29, 04, 2024, 0, 0, 0);
+    struct Ticket ticket = createTicket(1, 2, "8935212340502", "", 0, 0, 28, 12, 2024, 0, 0, 0);
+    struct Ticket ticket2 = createTicket(2, 3, "8935086855706", "", 0, 0, 29, 04, 2024, 0, 0, 0);
     addTicketToList(&ticket_list, &ticket_size, ticket);
     addTicketToList(&ticket_list, &ticket_size, ticket2);
 }

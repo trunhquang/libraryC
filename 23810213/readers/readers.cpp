@@ -31,7 +31,7 @@ char edit_menu[6][100] = {"Sửa tên",
 void calculator_column_with(int *arr)
 {
     int id_width = 7;
-    int name_width = 28;
+    int name_width = 20;
     int cmnd_width = 13;
     int birthdate_width = 12;
     int gender_width = 10;
@@ -46,9 +46,9 @@ void calculator_column_with(int *arr)
     {
         struct Reader reader = reader_list[i];
         // reader_name
-        if (name_width < utf8_strlen(reader.reader_name))
+        if (name_width < utf8_strlen(reader.reader_name) + 4)
         {
-            name_width = utf8_strlen(reader.reader_name);
+            name_width = utf8_strlen(reader.reader_name) + 4;
         }
         // cmnd
         if (cmnd_width < utf8_strlen(reader.cmnd))
@@ -544,7 +544,6 @@ int *get_ids_reader()
     free_readers(readers, reader_size);
     return indexs;
 }
-
 
 void show_statistics_gender()
 {

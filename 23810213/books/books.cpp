@@ -4,21 +4,24 @@
 #include <string.h>
 #include <stdlib.h>
 
-int book_size = 0;
 int bwidth_line = 0;
 int bcolumn_with[8];
-struct Book *book_list = NULL;
+char *book_file = "files/books.txt";
 
 void bcalculator_column_with(int *arr)
 {
-    int id_width = 20;
+    int id_width = 15;
     int name_width = 28;
-    int authorW = 28;
+    int authorW = 20;
     int publisherW = 20;
-    int yearW = 20;
-    int priceW = 20;
-    int quantityW = 20;
+    int yearW = 8;
+    int priceW = 10;
+    int quantityW = 10;
     int type_width = 20;
+
+    struct Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
+
     for (int i = 0; i < book_size; ++i)
     {
         struct Book book = book_list[i];
@@ -28,14 +31,19 @@ void bcalculator_column_with(int *arr)
             name_width = utf8_strlen(book.title);
         }
         // authorW
-        if (authorW < utf8_strlen(book.author))
+        if (authorW < utf8_strlen(book.author) + 4)
         {
-            authorW = utf8_strlen(book.author);
+            authorW = utf8_strlen(book.author) + 4;
         }
         // publisher*
         if (publisherW < utf8_strlen(book.publisher))
         {
             publisherW = utf8_strlen(book.publisher);
+        }
+        // type_width
+        if (type_width < utf8_strlen(book.category) + 4)
+        {
+            type_width = utf8_strlen(book.category) + 4;
         }
     }
     arr[0] = id_width;
@@ -46,6 +54,7 @@ void bcalculator_column_with(int *arr)
     arr[5] = type_width;
     arr[6] = priceW;
     arr[7] = quantityW;
+    free_books(book_list, book_size);
 }
 
 void bprint_title()
@@ -76,7 +85,7 @@ void bprint_title()
     begin_line();
     print_cell("NXB", bcolumn_with[3], true);
     begin_line();
-    print_cell("NĂM SẢN XUẤT", bcolumn_with[4], true);
+    print_cell("NĂM SX", bcolumn_with[4], true);
     begin_line();
     print_cell("THỂ LOẠI", bcolumn_with[5], true);
     begin_line();
@@ -87,11 +96,9 @@ void bprint_title()
     printLine(bwidth_line);
 }
 
-void print_book(int index)
+void print_book(struct Book book)
 {
     char result[10];
-    struct Book book = book_list[index];
-
     begin_line();
     print_cell(book.isbn, bcolumn_with[0], false);
     begin_line();
@@ -114,8 +121,10 @@ void print_book(int index)
     end_line();
 }
 
-void view_books(int index, bool showAll)
+void view_books(struct Book book, bool showAll)
 {
+    struct Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
     bprint_title();
     if (book_size == 0)
     {
@@ -130,14 +139,14 @@ void view_books(int index, bool showAll)
         // In dữ liệu từng dòng
         for (int i = book_size - 1; i >= 0; --i)
         {
-            print_book(i);
+            print_book(book_list[i]);
         }
     }
     else
     {
-        print_book(index);
+        print_book(book);
     }
-
+    free_books(book_list, book_size);
     // Kết thúc bảng
     printLine(bwidth_line);
 }
@@ -188,11 +197,13 @@ void add_book()
     printf("Nhập số lượng: ");
     scanf("%d", &_quantity);
     struct Book new_book = createBook(_ibns, _name, _author, _publisher, _type, _year, _price, _quantity);
-    addBookToList(&book_list, &book_size, new_book);
-    view_books(0, true);
+    write_book_to_file(book_file, new_book);
+    free_book(&new_book);
+     struct Book book;
+    view_books(book, true);
 }
 
-void show_edit_book_menu(int index)
+void show_edit_book_menu(struct Book book)
 {
     printf("---------------------DANH MỤC CẦN SỬA-------------------\n");
 
@@ -210,8 +221,6 @@ void show_edit_book_menu(int index)
         printf("%d.%s\n", i, edit_menu[i]);
     }
     printf("-------------------------------------------------------\n");
-
-    struct Book book = book_list[index];
 
     int choice = choice_action(8);
     switch (choice)
@@ -266,11 +275,14 @@ void show_edit_book_menu(int index)
     print_cell("** THÔNG TIN ĐÃ SỬA **", 50, true);
     end_line();
     printLine(54);
-    view_books(index, false);
+    update_book_in_file(book_file, book.isbn, book);
+    view_books(book, false);
 }
 
 void edit_book()
 {
+    struct Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
     if (book_size == 0)
     {
         printLine(54);
@@ -300,12 +312,15 @@ void edit_book()
         printLine(54);
         return;
     }
-    view_books(index, false);
-    show_edit_book_menu(index);
+    view_books(book_list[index], false);
+    show_edit_book_menu(book_list[index]);
+    free_books(book_list, book_size);
 }
 
 void delete_book()
 {
+    struct Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
     printLine(54);
     begin_line();
     print_cell("** XÓA THÔNG TIN SÁCH **", 50, true);
@@ -316,7 +331,7 @@ void delete_book()
     printf("Nhập ISBN  cần xóa: ");
     scanf(" %s", _isbn);
 
-    int index = findBookByid(book_list, book_size, _isbn);
+    int index = delete_book_in_file(book_file, _isbn);;
     if (index == -1)
     {
         printLine(54);
@@ -327,18 +342,18 @@ void delete_book()
         return;
     }
 
-    deleteBookbyID(&book_list, &book_size, _isbn);
-
-    book_size--;
     printLine(54);
     begin_line();
     print_cell("** Xóa thành công **", 50, true);
     end_line();
     printLine(54);
+    free_books(book_list, book_size);
 }
 
 void search_book_by_isbn()
 {
+    struct Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
     printLine(54);
     begin_line();
     print_cell("** TÌM KIẾM THEO ISBN **", 50, true);
@@ -367,14 +382,17 @@ void search_book_by_isbn()
     bprint_title();
     for (int i = 0; i < (length); i++)
     {
-        print_book(indexs[i]);
+        print_book(book_list[indexs[i]]);
     }
     printLine(bwidth_line);
     free(indexs);
+    free_books(book_list, book_size);
 }
 
 void search_book_by_name()
 {
+    struct  Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
     printLine(54);
     begin_line();
     print_cell("** TÌM THEO TÊN SÁCH **", 50, true);
@@ -403,10 +421,11 @@ void search_book_by_name()
     bprint_title();
     for (int i = 0; i < (length); i++)
     {
-        print_book(indexs[i]);
+        print_book(book_list[indexs[i]]);
     }
     printLine(bwidth_line);
     free(indexs);
+    free_books(book_list, book_size);
 }
 
 bool books_show_menu_function()
@@ -453,7 +472,8 @@ bool handle_books_menu(int choice)
     switch (choice)
     {
     case 0:
-        view_books(0, true);
+        struct Book book;
+        view_books(book, true);
         break;
     case 1:
         add_book();
@@ -478,41 +498,56 @@ bool handle_books_menu(int choice)
 
 int get_book_size()
 {
+    struct Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
+    free_books(book_list, book_size);
     return book_size;
 }
 
 int get_price_book(char *code)
 {
+    struct Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
     int index = findBookByid(book_list, book_size, code);
     if (index == -1)
     {
         return 0;
     }
+    int price = book_list[index].price;
+    free_books(book_list, book_size);
     return book_list[index].price;
 }
 
 char **get_isbns_book()
 {
+    struct Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
     char **isbns = (char **)malloc(book_size * sizeof(char *));
     for (int i = 0; i < book_size; i++)
     {
         isbns[i] = book_list[i].isbn;
     }
+    free_books(book_list, book_size);
     return isbns;
 }
 
 int get_total_book()
 {
+    struct Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
     int total = 0;
     for (int i = 0; i < book_size; i++)
     {
         total += book_list[i].quantity;
     }
+    free_books(book_list, book_size);
     return total;
 }
 
 int get_total_book_by_category(char *category)
 {
+    struct Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
     int total = 0;
     for (int i = 0; i < book_size; i++)
     {
@@ -522,11 +557,14 @@ int get_total_book_by_category(char *category)
             total += book.quantity;
         }
     }
+    free_books(book_list, book_size);
     return total;
 }
 
 void show_statistics_category()
 {
+    struct Book *book_list;
+    int book_size = read_books_from_file(book_file, &book_list);
     int size = 0;
     char **categories = (char **)malloc(size * sizeof(char *));
     for (int i = 0; i < book_size; i++)
@@ -542,16 +580,7 @@ void show_statistics_category()
         printf(" - %s: %d\n", categories[i], get_total_book_by_category(categories[i]));
     }
     free(categories);
-}
-
-void create_template_book()
-{
-    struct Book book1 = createBook("1234920112", "NHA GIA KIM", "Robust", "KIM DONG", "TRUYEN VIEN TUONG", 2000, 200000, 50);
-    struct Book book2 = createBook("0930910", "lam viec dung", "thienn long", "Tre", "TAM LY", 2020, 350000, 100);
-    struct Book book3 = createBook("9383993", "Harry Potter", "J.k", "KIM DONG", "Truyen", 2023, 455000, 1);
-    addBookToList(&book_list, &book_size, book1);
-    addBookToList(&book_list, &book_size, book2);
-    addBookToList(&book_list, &book_size, book3);
+    free_books(book_list, book_size);
 }
 
 struct Book createBook(char *isbn,
@@ -561,27 +590,33 @@ struct Book createBook(char *isbn,
                        char *category,
                        int year,
                        int price,
-                       int quantity) {
+                       int quantity)
+{
     struct Book book;
 
     book.isbn = (char *)malloc(strlen(isbn) + 1);
-    if (book.isbn != NULL) {
+    if (book.isbn != NULL)
+    {
         strcpy(book.isbn, isbn);
     }
     book.title = (char *)malloc(strlen(title) + 1);
-    if (book.title != NULL) {
+    if (book.title != NULL)
+    {
         strcpy(book.title, title);
     }
     book.author = (char *)malloc(strlen(author) + 1);
-    if (book.author != NULL) {
+    if (book.author != NULL)
+    {
         strcpy(book.author, author);
     }
     book.publisher = (char *)malloc(strlen(publisher) + 1);
-    if (book.publisher != NULL) {
+    if (book.publisher != NULL)
+    {
         strcpy(book.publisher, publisher);
     }
     book.category = (char *)malloc(strlen(category) + 1);
-    if (book.category != NULL) {
+    if (book.category != NULL)
+    {
         strcpy(book.category, category);
     }
     book.year = year;
@@ -590,21 +625,26 @@ struct Book createBook(char *isbn,
     return book;
 };
 
-void addBookToList(struct Book **books, int *num, struct Book new_book) {
+void addBookToList(struct Book **books, int *num, struct Book new_book)
+{
     *num += 1;
     *books = (struct Book *)realloc(*books, *num * sizeof(struct Book));
-    if (*books == NULL) {
+    if (*books == NULL)
+    {
         printf("Memory allocation failed!\n");
         exit(1);
     }
     (*books)[*num - 1] = new_book;
 };
 
-int *findBookByTitle(struct Book *book, int num, int *return_arr_length, const char *title) {
+int *findBookByTitle(struct Book *book, int num, int *return_arr_length, const char *title)
+{
     int *indexs = (int *)malloc(num * sizeof(int));
     int count = 0;
-    for (int i = 0; i < num; i++) {
-        if (strstr(book[i].title, title) != NULL) {
+    for (int i = 0; i < num; i++)
+    {
+        if (strstr(book[i].title, title) != NULL)
+        {
             indexs[count] = i;
             count++;
         }
@@ -613,11 +653,14 @@ int *findBookByTitle(struct Book *book, int num, int *return_arr_length, const c
     return indexs;
 };
 
-int *findBooksByISBN(struct Book *book, int num, int *return_arr_length, const char *isbn) {
+int *findBooksByISBN(struct Book *book, int num, int *return_arr_length, const char *isbn)
+{
     int *indexs = (int *)malloc(num * sizeof(int));
     int count = 0;
-    for (int i = 0; i < num; i++) {
-        if (strstr(book[i].isbn, isbn) != NULL) {
+    for (int i = 0; i < num; i++)
+    {
+        if (strstr(book[i].isbn, isbn) != NULL)
+        {
             indexs[count] = i;
             count++;
         }
@@ -626,26 +669,257 @@ int *findBooksByISBN(struct Book *book, int num, int *return_arr_length, const c
     return indexs;
 };
 
-int findBookByid(struct Book *book, int num, const char *isbn) {
-    for (int i = 0; i < num; i++) {
-        if (strcmp(book[i].isbn, isbn) == 0) {
+int findBookByid(struct Book *book, int num, const char *isbn)
+{
+    for (int i = 0; i < num; i++)
+    {
+        if (strcmp(book[i].isbn, isbn) == 0)
+        {
             return i;
         }
     }
     return -1;
 };
-void deleteBookbyID(struct Book **book, int *num, const char *isbn) {
+void deleteBookbyID(struct Book **book, int *num, const char *isbn)
+{
     int index = findBookByid(*book, *num, isbn);
-    if (index == -1) {
+    if (index == -1)
+    {
         return;
     }
-    for (int i = index; i < *num - 1; i++) {
+    for (int i = index; i < *num - 1; i++)
+    {
         (*book)[i] = (*book)[i + 1];
     }
     *num -= 1;
     *book = (struct Book *)realloc(*book, *num * sizeof(struct Book));
-    if (*book == NULL) {
+    if (*book == NULL)
+    {
         printf("Memory allocation failed!\n");
         exit(1);
     }
 };
+
+void write_books_to_file(const char *filename, struct Book *books, int count)
+{
+    // Extract the directory path from the filename
+    char dir[256];
+    strcpy(dir, filename);
+    char *last_slash = strrchr(dir, '/');
+    if (last_slash != NULL)
+    {
+        *last_slash = '\0'; // Terminate the string at the last slash
+        if (ensure_directory_exists(dir) != 0)
+        {
+            return;
+        }
+    }
+
+    FILE *file = fopen(filename, "w");
+    if (file == NULL)
+    {
+        perror("Failed to open file");
+        return;
+    }
+    // Write the number of books
+    fprintf(file, "%d\n", count);
+
+    // Write each book's information
+    for (int i = 0; i < count; i++)
+    {
+        fprintf(file, "%s\n", books[i].isbn);
+        fprintf(file, "%s\n", books[i].title);
+        fprintf(file, "%s\n", books[i].author);
+        fprintf(file, "%s\n", books[i].publisher);
+        fprintf(file, "%s\n", books[i].category);
+        fprintf(file, "%d\n", books[i].year);
+        fprintf(file, "%d\n", books[i].price);
+        fprintf(file, "%d\n", books[i].quantity);
+        fprintf(file, "%s\n", "----------------------------------");
+    }
+
+    fclose(file);
+}
+void write_book_to_file(const char *filename, struct Book book)
+{
+    // Extract the directory path from the filename
+    char dir[256];
+    strcpy(dir, filename);
+    char *last_slash = strrchr(dir, '/');
+    if (last_slash != NULL)
+    {
+        *last_slash = '\0'; // Terminate the string at the last slash
+        if (ensure_directory_exists(dir) != 0)
+        {
+            return;
+        }
+    }
+
+    FILE *file = fopen(filename, "r+"); // Open the file in read-write mode
+    if (file == NULL)
+    {
+        perror("Error opening file");
+        return;
+    }
+    // Read the count of readers
+    int count;
+    if (fscanf(file, "%d\n", &count) != 1)
+    {
+        perror("Error reading count of readers");
+        fclose(file);
+        return;
+    }
+    // Update the count of readers
+    count++;
+    // Move the file pointer to the beginning to overwrite the count
+    rewind(file);
+    fprintf(file, "%d\n", count);
+
+    // Move the file pointer to the end of the file
+    if (fseek(file, 0, SEEK_END) != 0)
+    {
+        perror("Error moving file pointer to the end of file");
+        fclose(file);
+        return;
+    }
+    // Write the number of books
+    fprintf(file, "%s\n", book.isbn);
+    fprintf(file, "%s\n", book.title);
+    fprintf(file, "%s\n", book.author);
+    fprintf(file, "%s\n", book.publisher);
+    fprintf(file, "%s\n", book.category);
+    fprintf(file, "%d\n", book.year);
+    fprintf(file, "%d\n", book.price);
+    fprintf(file, "%d\n", book.quantity);
+    fprintf(file, "%s\n", "----------------------------------");
+    fclose(file);
+}
+int read_books_from_file(const char *filename, struct Book **books)
+{
+    FILE *file = fopen(filename, "r");
+    if (file == NULL)
+    {
+        perror("Failed to open file");
+        return -1;
+    }
+
+    int count;
+    if (fscanf(file, "%d\n", &count) != 1)
+    {
+        perror("Failed to read the number of readers");
+        fclose(file);
+        return -1;
+    }
+
+
+    // Allocate memory for the array of books
+    *books = (struct Book *)malloc(count * sizeof(struct Book));
+    if (books == NULL)
+    {
+        perror("Failed to allocate memory for books");
+        fclose(file);
+        return -1;
+    }
+
+    // Read each book's information
+    for (int i = 0; i < count; i++)
+    {
+        char buffer[256];
+        struct Book *book = &(*books)[i];
+
+        // Read and allocate memory for isbn
+        if (fgets(buffer, sizeof(buffer), file) == NULL)
+            goto read_error;
+        buffer[strcspn(buffer, "\n")] = '\0'; // Remove newline character
+        book->isbn = strdup(buffer);
+
+        // Read and allocate memory for title
+        if (fgets(buffer, sizeof(buffer), file) == NULL)
+            goto read_error;
+        buffer[strcspn(buffer, "\n")] = '\0'; // Remove newline character
+        book->title = strdup(buffer);
+
+        // Read and allocate memory for author
+        if (fgets(buffer, sizeof(buffer), file) == NULL)
+            goto read_error;
+        buffer[strcspn(buffer, "\n")] = '\0'; // Remove newline character
+        book->author = strdup(buffer);
+
+        // Read and allocate memory for publisher
+        if (fgets(buffer, sizeof(buffer), file) == NULL)
+            goto read_error;
+        buffer[strcspn(buffer, "\n")] = '\0'; // Remove newline character
+        book->publisher = strdup(buffer);
+
+        // Read and allocate memory for category
+        if (fgets(buffer, sizeof(buffer), file) == NULL)
+            goto read_error;
+        buffer[strcspn(buffer, "\n")] = '\0'; // Remove newline character
+        book->category = strdup(buffer);
+
+        // Read year
+        if (fscanf(file, "%d\n", &book->year) != 1)
+            goto read_error;
+        // Read price
+        if (fscanf(file, "%d\n", &book->price) != 1)
+            goto read_error;
+        // Read quantity
+        if (fscanf(file, "%d\n", &book->quantity) != 1)
+            goto read_error;
+        // Read line separator
+        char line[256];
+        if (fscanf(file, "%255[^\n]\n", line) != 1)
+            goto read_error;
+
+    }
+
+    fclose(file);
+    return count;
+
+read_error:
+    perror("Failed to read book information");
+    fclose(file);
+    return count;
+}
+
+void free_book(struct Book *book)
+{
+    free(book->isbn);
+    free(book->title);
+    free(book->author);
+    free(book->publisher);
+    free(book->category);
+}
+void free_books(struct Book *books, int count)
+{
+    for (int i = 0; i < count; i++)
+    {
+        free_book(&books[i]);
+    }
+    free(books); // Free the array itself if it was dynamically allocated
+}
+void update_book_in_file(const char *filename, const char *isbn, struct Book new_data){
+    struct Book *book_list;
+    int book_size = read_books_from_file(filename, &book_list);
+    int index = findBookByid(book_list, book_size, isbn);
+    if (index == -1)
+    {
+        return;
+    }
+    book_list[index] = new_data;
+    write_books_to_file(filename, book_list, book_size);
+}
+
+int delete_book_in_file(const char *filename, const char *isbn)
+{
+    struct Book *book_list;
+    int book_size = read_books_from_file(filename, &book_list);
+    int index = findBookByid(book_list, book_size, isbn);
+    if (index == -1)
+    {
+        return -1;
+    }
+    deleteBookbyID(&book_list, &book_size, isbn);
+    write_books_to_file(filename, book_list, book_size);
+    return 0;
+}

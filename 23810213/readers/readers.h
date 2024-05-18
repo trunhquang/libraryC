@@ -55,8 +55,8 @@ int findPersonByid(struct Reader *people, int num_people, int id);
 // Hàm xóa một đối tượng Person khỏi mảng
 void deletePersonbyID(struct Reader **people, int *num_people, int id);
 
+//files
 void write_readers_to_file(const char *filename, struct Reader *readers, int count);
-
 void write_reader_to_file(const char *filename, struct Reader reader);
 int read_readers_from_file(const char *filename, struct Reader **readers);
 void update_reader_in_file(const char *filename, int id_to_update, struct Reader new_data);

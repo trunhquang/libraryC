@@ -13,14 +13,15 @@ struct Book
     char *author;
     char *publisher;
     char *category;
-        // publishing year books
     int year;
     int price;
     int quantity;
 };
+void free_book(struct Book *book);
+void free_books(struct Book *books, int count);
 
 /// @brief show all books
-void view_books(int index, bool showAll);
+void view_books(struct Book, bool showAll);
 
 /// @brief show all functions of books
 bool books_show_menu_function();
@@ -57,3 +58,10 @@ int *findBooksByISBN(struct Book *book, int num, int *return_arr_length, const c
 
 int findBookByid(struct Book *book, int num, const char *isbn);
 void deleteBookbyID(struct Book **book, int *num, const char *isbn);
+
+// file
+void write_books_to_file(const char *filename, struct Book *books, int count);
+void write_book_to_file(const char *filename, struct Book book);
+int read_books_from_file(const char *filename, struct Book **books);
+void update_book_in_file(const char *filename, const char *isbn, struct Book new_data);
+int delete_book_in_file(const char *filename, const char *isbn);
