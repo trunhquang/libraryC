@@ -69,7 +69,7 @@ void show_main_menu()
 // Shift Option F: format code
 int main()
 {
-    create_template_ticket();
+    // create_template_ticket();
     show_main_menu();
     return 0;
 }

@@ -554,7 +554,7 @@ void show_statistics_gender()
     int totalFemale = 0;
     for (int i = 0; i < reader_size; i++)
     {
-        if (strcmp(readers[i].gender, "nam") == 0)
+        if ((strcmp(readers[i].gender, "nam") == 0) || (strcmp(readers[i].gender, "NAM") == 0) || (strcmp(readers[i].gender, "Nam") == 0))
         {
             totalMale++;
         }
@@ -580,8 +580,8 @@ char *get_reader_name(int id)
         return result;
     }
     char *name = reader_list[index].reader_name;
-    free_readers(reader_list, reader_size);
     return name;
+    free_readers(reader_list, reader_size);
 }
 
 struct Reader createReader(int id, char *name, char *cmnd, char *birthdate, char *gender, char *address, char *date_create_card, char *date_expire_card)

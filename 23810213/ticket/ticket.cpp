@@ -7,10 +7,9 @@
 #include <stdlib.h>
 #include "time.h"
 
-int ticket_size = 0;
 int ticket_w_line = 0;
 int ticket_column_with[10];
-struct Ticket *ticket_list = NULL;
+char *ticket_file = "files/ticket.txt";
 
 /// late fee per day
 int late_fee_per_day = 5000;
@@ -54,7 +53,8 @@ bool ticket_show_menu()
 
 void return_ticket()
 {
-
+    struct Ticket *ticket_list;
+    int ticket_size = read_tickets_from_file(ticket_file, &ticket_list);
     printLine(54);
     begin_line();
     print_cell("** LẬP PHIẾU TRẢ SÁCH **", 50, true);
@@ -66,11 +66,12 @@ void return_ticket()
     int _day_return, _mounth_return, _year_return;
 
     printf("Nhập ID phiếu mượn(số): ");
-    scanf(" %d", &_id_ticket);
+    scanf("%d", &_id_ticket);
+    printf("Độc giả có làm mất sách không? (1.Có  0.Không) ");
 
     int index = findTicketByid(ticket_list, ticket_size, _id_ticket);
 
-    while (index == -1)
+    if (index == -1)
     {
         printLine(54);
         begin_line();
@@ -80,7 +81,7 @@ void return_ticket()
     }
 
     struct Ticket *ticket = &ticket_list[index];
-    
+
     if (ticket->return_status == 1)
     {
         printLine(54);
@@ -91,11 +92,9 @@ void return_ticket()
         return;
     }
 
-    int is_lost;
-    printf("Độc giả có làm mất sách không? (1.Có  0.Không)");
-    scanf("%d", &is_lost);
-
-    if (is_lost == 0)
+    int value;
+    scanf(" %d", &value);
+    if (value == 0)
     {
         // Nhập ngày, tháng và năm cách nhau bằng dấu /
         printf("Nhập ngày trả (vd: 28/04/2024): ");
@@ -109,31 +108,33 @@ void return_ticket()
             scanf("%d/%d/%d", &_day_return, &_mounth_return, &_year_return);
             _dayslate = daysLate(ticket->day_borrow, ticket->mounth_borrow, ticket->year_borrow, _day_return, _mounth_return, _year_return);
         }
-    
-        ticket->updateReturnDate(ticket, _day_return, _mounth_return, _year_return);
+
+        ticket->day_return = _day_return;
+        ticket->mounth_return = _mounth_return;
+        ticket->year_return = _year_return;
+
         printf("Ngày trả: %d/%d/%d\n", ticket->day_return, ticket->mounth_return, ticket->year_return);
 
-        ticket->updateStatus(ticket, 1);
-        print_ticket(index);
+        ticket->return_status = 1;
+        print_ticket(ticket_list[index]);
 
         if (_dayslate > 7)
         {
             _dayslate -= 7;
             int money_pay_for_error = _dayslate * late_fee_per_day;
-            ticket->updateMOney(ticket, money_pay_for_error);
+            ticket->money_pay_for_error =  money_pay_for_error;
             char message[100];
             snprintf(message, sizeof(message), "Trễ %d ngày", _dayslate);
             strcpy(ticket->reason_pay, message);
         }
-    }
-    else
-    {
+    } else {
         int price = get_price_book(ticket->book_id);
         int money_pay_for_error = price * lost_fee_per_book;
-        ticket->updateMOney(ticket, money_pay_for_error);
-        strcpy(ticket->reason_pay, "Mất sách"); 
+        ticket->money_pay_for_error = money_pay_for_error;
+        ticket->return_status = 1;
+        strcpy(ticket->reason_pay, "Mất sách");
     }
-
+    write_tickets_to_file(ticket_file, ticket_list, ticket_size);
     printLine(54);
     begin_line();
     print_cell("** Đã trả sách thành công **", 50, true);
@@ -141,6 +142,7 @@ void return_ticket()
     printLine(54);
 
     view_tickets(index, false);
+    free_tickets(ticket_list, ticket_size);
 }
 
 bool handle_ticket_return__menu(int choice)
@@ -277,10 +279,9 @@ void print_ticket_title()
     printLine(ticket_w_line);
 }
 
-void print_ticket(int index)
+void print_ticket(struct Ticket ticket)
 {
     char result[20];
-    struct Ticket ticket = ticket_list[index];
     begin_line();
     snprintf(result, sizeof(result), "%d", ticket.ticket_id);
     print_cell(result, ticket_column_with[0], true);
@@ -298,6 +299,7 @@ void print_ticket(int index)
     snprintf(result, 11, "%02d/%02d/%d", ticket.day_return_ex, ticket.mounth_return_ex, ticket.year_return_ex);
     print_cell(result, ticket_column_with[5], true);
     begin_line();
+
     if (ticket.day_return != 0)
     {
         snprintf(result, 11, "%02d/%02d/%d", ticket.day_return, ticket.mounth_return, ticket.year_return);
@@ -328,6 +330,8 @@ void print_ticket(int index)
 
 void view_tickets(int index, bool showAll)
 {
+    struct Ticket *ticket_list;
+    int ticket_size = read_tickets_from_file(ticket_file, &ticket_list);
     print_ticket_title();
     if (ticket_size == 0)
     {
@@ -337,22 +341,24 @@ void view_tickets(int index, bool showAll)
         printLine(ticket_w_line);
         return;
     }
-
     if (showAll)
     {
         // In dữ liệu từng dòng
         for (int i = ticket_size - 1; i >= 0; --i)
         {
-            print_ticket(i);
+            struct Ticket ticket = ticket_list[i];
+            print_ticket(ticket);
         }
     }
     else
     {
-        print_ticket(index);
+        struct Ticket ticket = ticket_list[index];
+        print_ticket(ticket);
     }
 
     // Kết thúc bảng
     printLine(ticket_w_line);
+    free_tickets(ticket_list, ticket_size);
 }
 
 void add_ticket()
@@ -422,20 +428,25 @@ void add_ticket()
     scanf("%d/%d/%d", &_day_borrow, &_mounth_borrow, &_year_borrow);
 
     // realloc data list
+    struct Ticket *ticket_list;
+    int ticket_size = read_tickets_from_file(ticket_file, &ticket_list);
     int newId = 1;
     if (ticket_size > 0)
     {
         newId = ticket_list[ticket_size - 1].ticket_id + 1;
     }
 
-    struct Ticket ticket = createTicket(newId, _id_reader, _isbn_book, "", 0, 0, _day_borrow, _mounth_borrow, _year_borrow, 0, 0, 0);
-    addTicketToList(&ticket_list, &ticket_size, ticket);
-
+    char reason[256] = "_";
+    struct Ticket ticket = createTicket(newId, _id_reader, _isbn_book, reason, 0, 0, _day_borrow, _mounth_borrow, _year_borrow, 0, 0, 0);
+    write_ticket_to_file(ticket_file, ticket);
     view_tickets(ticket_size - 1, false);
+    free_tickets(ticket_list, ticket_size);
 }
 
 int get_total_borrowed_books()
 {
+    struct Ticket *ticket_list;
+    int ticket_size = read_tickets_from_file(ticket_file, &ticket_list);
     int count = 0;
     for (int i = 0; i < ticket_size; i++)
     {
@@ -444,15 +455,18 @@ int get_total_borrowed_books()
             count++;
         }
     }
+    free_tickets(ticket_list, ticket_size);
     return count;
 }
 void show_reader_late_ticket()
 {
+    struct Ticket *ticket_list;
+    int ticket_size = read_tickets_from_file(ticket_file, &ticket_list);
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
 
     int ngay = tm.tm_mday;
-    int thang = tm.tm_mon + 2;   // tm_mon đếm từ 0, nên cần cộng 1
+    int thang = tm.tm_mon + 1;   // tm_mon đếm từ 0, nên cần cộng 1
     int nam = tm.tm_year + 1900; // tm_year là số năm kể từ 1900
     print_ticket_title();
     for (int i = 0; i < ticket_size; i++)
@@ -460,63 +474,41 @@ void show_reader_late_ticket()
         struct Ticket ticket = ticket_list[i];
         if (ticket.return_status == 0)
         {
-            int _dayslate = daysLate(ticket.day_borrow, ticket.mounth_borrow, ticket.year_borrow, ngay,thang, nam);
+            int _dayslate = daysLate(ticket.day_borrow, ticket.mounth_borrow, ticket.year_borrow, ngay, thang, nam);
             if (_dayslate > 7)
             {
                 ticket.money_pay_for_error = (_dayslate - 7) * late_fee_per_day;
                 char message[100];
                 snprintf(message, sizeof(message), "Trễ %d ngày", (_dayslate - 7));
                 strcpy(ticket.reason_pay, message);
-                print_ticket(i);
+                print_ticket(ticket);
             }
         }
     }
     printLine(ticket_w_line);
-}
-
-void create_template_ticket()
-{
-    struct Ticket ticket = createTicket(1, 2, "8935212340502", "", 0, 0, 28, 12, 2024, 0, 0, 0);
-    struct Ticket ticket2 = createTicket(2, 3, "8935086855706", "", 0, 0, 29, 04, 2024, 0, 0, 0);
-    addTicketToList(&ticket_list, &ticket_size, ticket);
-    addTicketToList(&ticket_list, &ticket_size, ticket2);
-}
-
-void updateReturnDate(struct Ticket *self, int day_return, int mounth_return, int year_return)
-{
-    self->day_return = day_return;
-    self->mounth_return = mounth_return;
-    self->year_return = year_return;
-    printf("Ngày trả: %d/%d/%d\n", day_return, mounth_return, year_return);
-    printf("Ngày trả dự kiến: %d/%d/%d\n", self->day_return, self->mounth_return, self->year_return);
-
-}
-void updateMOney(struct Ticket *self, int money_pay_for_error)
-{
-    self->money_pay_for_error = money_pay_for_error;
-}
-void updateStatus(struct Ticket *self, int return_status)
-{
-    self->return_status = return_status;
+    free_tickets(ticket_list, ticket_size);
 }
 
 struct Ticket createTicket(int ticket_id,
-    int reader_id,
-    char *book_id,
-    char *reason_pay,
-   int return_status,
-    int money_pay_for_error,
-    int day_borrow, int mounth_borrow,int year_borrow,
-    int day_return, int mounth_return, int year_return){
+                           int reader_id,
+                           char *book_id,
+                           char *reason_pay,
+                           int return_status,
+                           int money_pay_for_error,
+                           int day_borrow, int mounth_borrow, int year_borrow,
+                           int day_return, int mounth_return, int year_return)
+{
     struct Ticket ticket;
     ticket.ticket_id = ticket_id;
     ticket.reader_id = reader_id;
     ticket.book_id = (char *)malloc(strlen(book_id) + 1);
-    if (ticket.book_id != NULL) {
+    if (ticket.book_id != NULL)
+    {
         strcpy(ticket.book_id, book_id);
     }
     ticket.reason_pay = (char *)malloc(strlen(reason_pay) + 1);
-    if (ticket.reason_pay != NULL) {
+    if (ticket.reason_pay != NULL)
+    {
         strcpy(ticket.reason_pay, reason_pay);
     }
     ticket.return_status = return_status;
@@ -530,13 +522,13 @@ struct Ticket createTicket(int ticket_id,
     return_ex_time.tm_mon = mounth_borrow;
     return_ex_time.tm_year = year_borrow - 1900;
 
-// Chuyển đổi struct tm thành thời gian số nguyên (số giây kể từ epoch)
+    // Chuyển đổi struct tm thành thời gian số nguyên (số giây kể từ epoch)
     time_t time_seconds = mktime(&return_ex_time);
 
     struct tm *current_time = localtime(&time_seconds);
-// Thêm 7 ngày vào thời gian số nguyên
+    // Thêm 7 ngày vào thời gian số nguyên
     time_seconds += (7 * 24 * 60 * 60);
-// Chuyển đổi thời gian số nguyên mới thành struct tm
+    // Chuyển đổi thời gian số nguyên mới thành struct tm
     struct tm *future_time = localtime(&time_seconds);
 
     ticket.day_return_ex = future_time->tm_mday;
@@ -546,13 +538,11 @@ struct Ticket createTicket(int ticket_id,
     ticket.day_return = day_return;
     ticket.mounth_return = mounth_return;
     ticket.year_return = year_return;
-    ticket.updateReturnDate = updateReturnDate;
-    ticket.updateMOney = updateMOney;
-    ticket.updateStatus = updateStatus;
     return ticket;
-    }
+}
 
-void addTicketToList(struct Ticket **tickets, int *num, struct Ticket new_ticket){
+void addTicketToList(struct Ticket **tickets, int *num, struct Ticket new_ticket)
+{
     *num += 1;
     *tickets = (struct Ticket *)realloc(*tickets, *num * sizeof(struct Ticket));
     if (*tickets == NULL)
@@ -563,7 +553,8 @@ void addTicketToList(struct Ticket **tickets, int *num, struct Ticket new_ticket
     (*tickets)[*num - 1] = new_ticket;
 }
 
-int findTicketByid(struct Ticket *ticket, int num, int id){
+int findTicketByid(struct Ticket *ticket, int num, int id)
+{
     for (int i = 0; i < num; i++)
     {
         if (ticket[i].ticket_id == id)
@@ -573,3 +564,181 @@ int findTicketByid(struct Ticket *ticket, int num, int id){
     }
     return -1;
 };
+
+void write_tickets_to_file(const char *filename, struct Ticket *tickets, int count)
+{
+    FILE *file = fopen(filename, "w");
+    if (file == NULL)
+    {
+        perror("Failed to open file");
+        return;
+    }
+    // Write the number of ticket
+    fprintf(file, "%d\n", count);
+
+    // Write each book's information
+    for (int i = 0; i < count; i++)
+    {
+        struct Ticket ticket = tickets[i];
+        // printf( "ticketid:%d\n", ticket.ticket_id);
+        // printf( "readerID:%d\n", ticket.reader_id);
+        // printf( "book_id:%s\n", ticket.book_id);
+        // printf( "reason_pay:%s\n", ticket.reason_pay);
+        // printf( "return_status:%d\n", ticket.return_status);
+        // printf( "money_pay_for_error:%d\n", ticket.money_pay_for_error);
+        // printf( "day_borrow:%d\n", ticket.day_borrow);
+        // printf( "mounth_borrow:%d\n", ticket.mounth_borrow);
+        // printf( "year_borrow:%d\n", ticket.year_borrow);
+        // printf( "day_return_ex:%d\n", ticket.day_return_ex);
+        // printf( "mounth_return_ex:%d\n", ticket.mounth_return_ex);
+        // printf( "year_return_ex:%d\n", ticket.year_return_ex);
+        // printf( "day_return:%d\n", ticket.day_return);
+        // printf( "mounth_return:%d\n", ticket.mounth_return);
+        // printf( "year_return:%d\n", ticket.year_return);
+        // printf( "%s\n", "----------------------------------");
+
+        fprintf(file, "%d\n", ticket.ticket_id);
+        fprintf(file, "%d\n", ticket.reader_id);
+        fprintf(file, "%s\n", ticket.book_id);
+        fprintf(file, "%s\n", ticket.reason_pay);
+        fprintf(file, "%d\n", ticket.return_status);
+        fprintf(file, "%d\n", ticket.money_pay_for_error);
+        fprintf(file, "%d\n", ticket.day_borrow);
+        fprintf(file, "%d\n", ticket.mounth_borrow);
+        fprintf(file, "%d\n", ticket.year_borrow);
+        fprintf(file, "%d\n", ticket.day_return_ex);
+        fprintf(file, "%d\n", ticket.mounth_return_ex);
+        fprintf(file, "%d\n", ticket.year_return_ex);
+        fprintf(file, "%d\n", ticket.day_return);
+        fprintf(file, "%d\n", ticket.mounth_return);
+        fprintf(file, "%d\n", ticket.year_return);
+        fprintf(file, "%s\n", "----------------------------------");
+    }
+
+    fclose(file);
+}
+
+void write_ticket_to_file(const char *filename, struct Ticket ticket)
+{
+    // Extract the directory path from the filename
+    char dir[256];
+    strcpy(dir, filename);
+    char *last_slash = strrchr(dir, '/');
+    if (last_slash != NULL)
+    {
+        *last_slash = '\0'; // Terminate the string at the last slash
+        if (ensure_directory_exists(dir) != 0)
+        {
+            return;
+        }
+    }
+
+    FILE *file = fopen(filename, "r+"); // Open the file in read-write mode
+    if (file == NULL)
+    {
+        perror("Error opening file");
+        return;
+    }
+    // Read the count of readers
+    int count;
+    if (fscanf(file, "%d\n", &count) != 1)
+    {
+        perror("Error reading count of readers");
+        fclose(file);
+        return;
+    }
+    // Update the count of readers
+    count++;
+    // Move the file pointer to the beginning to overwrite the count
+    rewind(file);
+    fprintf(file, "%d\n", count);
+
+    // Move the file pointer to the end of the file
+    if (fseek(file, 0, SEEK_END) != 0)
+    {
+        perror("Error moving file pointer to the end of file");
+        fclose(file);
+        return;
+    }
+        fprintf(file, "%d\n", ticket.ticket_id);
+        fprintf(file, "%d\n", ticket.reader_id);
+        fprintf(file, "%s\n", ticket.book_id);
+        fprintf(file, "%s\n", ticket.reason_pay);
+        fprintf(file, "%d\n", ticket.return_status);
+        fprintf(file, "%d\n", ticket.money_pay_for_error);
+        fprintf(file, "%d\n", ticket.day_borrow);
+        fprintf(file, "%d\n", ticket.mounth_borrow);
+        fprintf(file, "%d\n", ticket.year_borrow);
+        fprintf(file, "%d\n", ticket.day_return_ex);
+        fprintf(file, "%d\n", ticket.mounth_return_ex);
+        fprintf(file, "%d\n", ticket.year_return_ex);
+        fprintf(file, "%d\n", ticket.day_return);
+        fprintf(file, "%d\n", ticket.mounth_return);
+        fprintf(file, "%d\n", ticket.year_return);
+        fprintf(file, "%s\n", "----------------------------------");
+    fclose(file);
+}
+
+int read_tickets_from_file(const char *filename, struct Ticket **tickets)
+{
+    FILE *file = fopen(filename, "r");
+    if (file == NULL)
+    {
+        perror("Failed to open file");
+        return 0;
+    }
+
+    int count;
+    fscanf(file, "%d\n", &count);
+
+    *tickets = (struct Ticket *)malloc(count * sizeof(struct Ticket));
+    if (*tickets == NULL)
+    {
+        perror("Failed to allocate memory");
+        return 0;
+    }
+
+    for (int i = 0; i < count; i++)
+    {
+        struct Ticket *ticket = &(*tickets)[i];
+
+        ticket->book_id = (char *)malloc(256);
+        ticket->reason_pay = (char *)malloc(256);
+
+        fscanf(file, "%d\n", &ticket->ticket_id);
+        fscanf(file, "%d\n", &ticket->reader_id);
+        fscanf(file, "%255[^\n]\n", ticket->book_id);
+        fscanf(file, "%255[^\n]\n", ticket->reason_pay);
+        fscanf(file, "%d\n", &ticket->return_status);
+        fscanf(file, "%d\n", &ticket->money_pay_for_error);
+        fscanf(file, "%d\n", &ticket->day_borrow);
+        fscanf(file, "%d\n", &ticket->mounth_borrow);
+        fscanf(file, "%d\n", &ticket->year_borrow);
+        fscanf(file, "%d\n", &ticket->day_return_ex);
+        fscanf(file, "%d\n", &ticket->mounth_return_ex);
+        fscanf(file, "%d\n", &ticket->year_return_ex);
+        fscanf(file, "%d\n", &ticket->day_return);
+        fscanf(file, "%d\n", &ticket->mounth_return);
+        fscanf(file, "%d\n", &ticket->year_return);
+        char line[256];
+        fscanf(file, "%s\n", line);
+    }
+
+    fclose(file);
+    return count;
+}
+
+void free_ticket(struct Ticket *ticket)
+{
+    free(ticket->book_id);
+    free(ticket->reason_pay);
+}
+
+void free_tickets(struct Ticket *tickets, int count)
+{
+    for (int i = 0; i < count; i++)
+    {
+        free_ticket(&tickets[i]);
+    }
+    free(tickets);
+}

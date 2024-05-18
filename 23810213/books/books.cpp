@@ -514,8 +514,8 @@ int get_price_book(char *code)
         return 0;
     }
     int price = book_list[index].price;
+    return price;
     free_books(book_list, book_size);
-    return book_list[index].price;
 }
 
 char **get_isbns_book()
@@ -527,8 +527,9 @@ char **get_isbns_book()
     {
         isbns[i] = book_list[i].isbn;
     }
-    free_books(book_list, book_size);
     return isbns;
+    free_books(book_list, book_size);
+
 }
 
 int get_total_book()
@@ -557,8 +558,8 @@ int get_total_book_by_category(char *category)
             total += book.quantity;
         }
     }
-    free_books(book_list, book_size);
     return total;
+    free_books(book_list, book_size);
 }
 
 void show_statistics_category()
@@ -569,9 +570,10 @@ void show_statistics_category()
     char **categories = (char **)malloc(size * sizeof(char *));
     for (int i = 0; i < book_size; i++)
     {
-        if (findExactlyIndex(categories, size, book_list[i].category) == -1)
+        char *category = book_list[i].category;
+        if (findExactlyIndex(categories, size, category) == -1)
         {
-            categories = addStringToArray(categories, &size, book_list[i].category);
+            categories = addStringToArray(categories, &size, category);
         }
     }
 
